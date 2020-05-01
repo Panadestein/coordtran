@@ -14,7 +14,7 @@ from scipy.spatial.transform import Rotation as rotor
 
 # Import reference pyrene (rotate to align our system)
 
-GEOPYR = np.loadtxt("../pyreneref")
+GEOPYR = np.loadtxt("./pyreneref")
 
 # Atom types and masses (nist.gov)
 
@@ -176,20 +176,29 @@ def cart2int(cart_coord):
     # Compute fragments centers of mass
 
     cent_pyr = np.sum(geopyr * maspyr[:, None], axis=0) / np.sum(maspyr)
-    cent_noo = np.sum(geonoo * masnoo[:, None], axis=0) / np.sum(masnoo)
 
-    # Translate geometries to centers of mass and compute distance
+    # Translate both geometries to the pyrene frame
 
     geopyr -= cent_pyr
-    geonoo -= cent_noo
-    cent_rel = cent_noo - cent_pyr
+    geonoo -= cent_pyr
 
-    # Compute principal axes of fragments
+    # Compute principal axes of pyrene
 
     axes_pyr = paxes(intens(maspyr, geopyr))
-    axes_noo = paxes(intens(masnoo, geonoo))
 
-    # Make sure the orientation of the Pyr is equivalent to int2cart's
+    # Rotate both molecules to the pyrene frame (symbolic in the Pyr case)
+
+    geonoo = np.transpose(axes_pyr.T @ geonoo.T)
+
+    # Compute NO2 center of mass in new frame, and then translate to center
+    # This center of mass is the distance between pyr and NO2
+
+    cent_noo = np.sum(geonoo * masnoo[:, None], axis=0) / np.sum(masnoo)
+    geonoo -= cent_noo
+
+    # Compute NO2 principal axis
+
+    axes_noo = paxes(intens(masnoo, geonoo))
 
     # Make sure the orientation of the NO2 is equivalent to int2cart's
 
@@ -199,9 +208,9 @@ def cart2int(cart_coord):
         axes_noo[:, 2] *= -1
     axes_noo[:, 0] = np.cross(axes_noo[:, 1], axes_noo[:, 2])
 
-    # Definition of the rotation
+    # The rotation matrix should be equivalent to the NO2 axes
 
-    rotmat = axes_noo @ axes_pyr.T
+    rotmat = axes_noo
 
     if not __debug__:
         # Print atrices and geometries to debug
@@ -222,13 +231,9 @@ def cart2int(cart_coord):
     rotacion = rotor.from_matrix(rotmat)
     alpha, beta, gamma = rotacion.as_euler('XYZ')
 
-    # Transform distace vector to Pyr frame
-
-    cent_rel = axes_pyr @ cent_rel
-
     # Return internal coordinates
 
-    return np.around(np.array([*cent_rel, alpha, beta, gamma, r_1, r_2, phi],
+    return np.around(np.array([*cent_noo, alpha, beta, gamma, r_1, r_2, phi],
                               dtype=np.float64), decimals=5)
 
 
@@ -341,7 +346,10 @@ def wrt_geo(geom, name):
 # Test geometry
 
 if __name__ == "__main__":
-    COORDS = np.array([-.3, 2., 2.1, 2.3, -0.2, -2.6, 1.19, 1.19, 2.34],
-                      np.float64)
-    print(COORDS)
-    print(cart2int(int2cart(COORDS)))
+    #  COORDS = np.array([-.3, 2., 2.1, 2.3, -0.2, -2.6, 1.19, 1.19, 2.34],
+    #                    np.float64)
+    #  print(COORDS)
+    #  print(cart2int(int2cart(COORDS)))
+    GEO = np.loadtxt('./SPs/minf_ts18')
+    print(cart2int(GEO))
+    print(cart2int(int2cart(cart2int(GEO))))
